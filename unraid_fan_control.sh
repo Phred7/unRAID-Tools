@@ -15,7 +15,7 @@
 
 ### VARIABLES FOR USER TO SET ###
 # Amount of drives in the array. Make sure it matches the amount you filled out below.
-NUM_OF_DRIVES=5
+NUM_OF_DRIVES=8
 
 # unRAID drives that are in the array/backplane of the fan we need to control
 HD[1]=/dev/sdb
@@ -23,9 +23,9 @@ HD[2]=/dev/sdc
 HD[3]=/dev/sdd
 HD[4]=/dev/sde
 HD[5]=/dev/sdf
-#HD[6]=/dev/sdg
-#HD[7]=/dev/sdh
-#HD[8]=/dev/sdi
+HD[6]=/dev/sdg
+HD[7]=/dev/sdh
+HD[8]=/dev/sdi
 #HD[9]=/dev/sdj
 #HD[10]=/dev/sdk
 #HD[11]=/dev/sdl
@@ -45,8 +45,12 @@ HD[5]=/dev/sdf
 
 # Temperatures to change fan speed at
 # Any temp between OFF and HIGH will cause fan to run on low speed setting 
-FAN_OFF_TEMP=35     # Anything this number and below - fan is off
-FAN_HIGH_TEMP=45    # Anything this number or above - fan is high speed
+FAN_OFF_TEMP=27     # Anything this number and below - fan is off
+FAN_HIGH_TEMP=38    # Anything this number or above - fan is high speed
+GPU_LOW_TEMP=45
+GPU_HIGH_TEMP=65
+CPU_LOW_TEMP=40
+CPU_HIGH_TEMP=80
 
 # Fan speed settings. Run pwmconfig (part of the lm_sensors package) to determine 
 # what numbers you want to use for your fan pwm settings. Should not need to
@@ -56,8 +60,8 @@ FAN_HIGH_TEMP=45    # Anything this number or above - fan is high speed
 # Any real number between 0 and 255.
 #
 FAN_OFF_PWM=0
-FAN_LOW_PWM=100
-FAN_START_PWM=255
+FAN_LOW_PWM=80
+FAN_START_PWM=1
 FAN_HIGH_PWM=255
 
 # Fan device. Depends on your system. pwmconfig can help with finding this out. 
@@ -65,8 +69,7 @@ FAN_HIGH_PWM=255
 # or fan2_input and so on to see the current rpm of the fan. If 0 then fan is off or 
 # there is no fan connected or motherboard can't read rpm of fan.
 # ARRAY_FAN=/sys/class/hwmon/hwmon1/device/pwm2
-ARRAY_FAN=/sys/class/hwmon/hwmon2/pwm1
-
+ARRAY_FAN=/sys/class/hwmon/hwmon4/pwm1
 ### END USER SET VARIABLES ###
 
 
@@ -97,7 +100,11 @@ do
 #echo $CURRENT_TEMP
   let "CURRENT_DRIVE+=1"
 done
-OUTPUT+="Highest temp is: "$HIGHEST_TEMP$'\n'
+OUTPUT+="Highest drive temp is: "$HIGHEST_TEMP$'\n'
+
+CPU_TEMP=`sensors | grep "Package id 0:" | awk '{print $4}' | grep -o '[^+]*' | grep -o '^[^\.]*'`
+
+GPU_TEMP=`nvidia-smi | grep '[[:digit:]]C' | awk '{print $3}' | grep -o '.[^C]'`
 
 # Enable speed change on this fan if not already
 if [ "$ARRAY_FAN" != "1" ]; then
@@ -118,16 +125,29 @@ elif [ "$HIGHEST_TEMP" -ge "$FAN_HIGH_TEMP" ]; then
   OUTPUT+="Setting pwm to: "$FAN_HIGH_PWM$'\n'
 else
   # set fan to starting speed first to make sure it spins up then change it to low setting.
-  if [ "$PREVIOUS_SPEED" -lt "$FAN_START_PWM" ]; then
-    echo $FAN_START_PWM > $ARRAY_FAN
-      sleep 4
-  fi
+  #if [ "$PREVIOUS_SPEED" -lt "$FAN_START_PWM" ]; then
+  #  echo $FAN_START_PWM > $ARRAY_FAN
+  #    sleep 4
+  #fi
   # Calculate target fan PWM speed as a linear value between FAN_HIGH_PWM and FAN_LOW_PWM
   FAN_LINEAR_PWM=$(( ((HIGHEST_TEMP - FAN_OFF_TEMP - 1) * PWM_INCREMENT) + FAN_LOW_PWM))
   echo $FAN_LINEAR_PWM > $ARRAY_FAN
   OUTPUT+="Setting pwm to: "$FAN_LINEAR_PWM$'\n'
 fi
 
+if [ "$CPU_TEMP" -gt "$CPU_HIGH_TEMP" ]; then
+  echo $FAN_HIGH_PWM  > $ARRAY_FAN
+  OUTPUT+="CPU setting pwm to: "$FAN_HIGH_PWM$'\n'
+elif [ "$GPU_TEMP" -gt "$GPU_HIGH_TEMP" ]; then
+  echo $FAN_HIGH_PWM  > $ARRAY_FAN
+  OUTPUT+="GPU setting pwm to: "$FAN_HIGH_PWM$'\n'
+elif [ "$CPU_TEMP" -gt "$CPU_LOW_TEMP" ]; then
+  echo $FAN_LOW_PWM  > $ARRAY_FAN
+  OUTPUT+="CPU setting pwm to: "$FAN_LOW_PWM$'\n'
+elif [ "$GPU_TEMP" -gt "$GPU_LOW_TEMP" ]; then
+  echo $FAN_LOW_PWM  > $ARRAY_FAN
+  OUTPUT+="GPU setting pwm to: "$FAN_LOW_PWM$'\n'
+fi
 
 # produce output if the fan speed was changed
 CURRENT_SPEED=`cat $ARRAY_FAN`
@@ -135,5 +155,5 @@ if [ "$PREVIOUS_SPEED" -ne "$CURRENT_SPEED" ]; then
   echo "Fan speed has changed."
   echo "${OUTPUT}"
 else
-  echo "Fan speed unchanged. Highest temp: "$HIGHEST_TEMP" Current pwm: "$CURRENT_SPEED
+  echo "Fan speed unchanged. Highest drive temp: "$HIGHEST_TEMP". CPU: "$CPU_TEMP". GPU: "$GPU_TEMP". Current pwm: "$CURRENT_SPEED
 fi
