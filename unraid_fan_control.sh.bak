@@ -174,9 +174,8 @@ echo $FAN_PWM  > $ARRAY_FAN
 # produce output if the fan speed was changed
 CURRENT_SPEED=`cat $ARRAY_FAN`
 if [ "$PREVIOUS_SPEED" -ne "$CURRENT_SPEED" ]; then
-  echo "Fan speed has changed."
+  echo "Fan speed has changed. Highest drive temp: "$HIGHEST_TEMP". CPU: "$CPU_TEMP". GPU: "$GPU_TEMP"."
   echo "${OUTPUT}"
 else
-  echo "Fan speed unchanged."
+  echo "Fan speed unchanged. Highest drive temp: "$HIGHEST_TEMP". CPU: "$CPU_TEMP". GPU: "$GPU_TEMP". Current pwm: "$CURRENT_SPEED
 fi
-echo "Highest drive temp: "$HIGHEST_TEMP". CPU: "$CPU_TEMP". GPU: "$GPU_TEMP". Current pwm: "$CURRENT_SPEED
