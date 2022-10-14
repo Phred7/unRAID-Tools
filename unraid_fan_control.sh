@@ -45,9 +45,9 @@ HD[8]=/dev/sdi
 
 # Temperatures to change fan speed at
 # Any temp between OFF and HIGH will cause fan to run on low speed setting 
-FAN_OFF_TEMP=27     # Anything this number and below - fan is off
-FAN_HIGH_TEMP=38    # Anything this number or above - fan is high speed
-GPU_LOW_TEMP=45
+FAN_LOW_TEMP=28     # Anything this number and below - fan is off
+FAN_HIGH_TEMP=40    # Anything this number or above - fan is high speed
+GPU_LOW_TEMP=50
 GPU_HIGH_TEMP=65
 CPU_LOW_TEMP=40
 CPU_HIGH_TEMP=80
@@ -60,7 +60,7 @@ CPU_HIGH_TEMP=80
 # Any real number between 0 and 255.
 #
 FAN_OFF_PWM=0
-FAN_LOW_PWM=80
+FAN_LOW_PWM=10
 FAN_START_PWM=1
 FAN_HIGH_PWM=255
 
@@ -81,7 +81,7 @@ OUTPUT=""
 FAN_PWM=0
 
 # Linear PWM Logic Variables - do not modify
-NUM_STEPS=$((FAN_HIGH_TEMP - FAN_OFF_TEMP - 1))
+NUM_STEPS=$((FAN_HIGH_TEMP - FAN_LOW_TEMP - 1))
 PWM_INCREMENT=$(( (FAN_HIGH_PWM - FAN_LOW_PWM) / NUM_STEPS))
 OUTPUT+="Linear PWM Range is "$FAN_LOW_PWM" to "$FAN_HIGH_PWM" in "$NUM_STEPS" increments of "$PWM_INCREMENT$'\n'
 
@@ -98,7 +98,7 @@ do
       HIGHEST_TEMP=$CURRENT_TEMP
     fi
   fi
-#echo $CURRENT_TEMP
+echo ${HD[$CURRENT_DRIVE]}": "$CURRENT_TEMP
   let "CURRENT_DRIVE+=1"
 done
 OUTPUT+="Highest drive temp is: "$HIGHEST_TEMP$'\n'
@@ -115,16 +115,16 @@ fi
 # previous speed
 PREVIOUS_SPEED=`cat $ARRAY_FAN`
 
-#echo "fan pre pwm: "$FAN_PWM
+# echo "fan pre pwm: "$FAN_PWM
 
 # Set the fan speed based on highest temperature
-if [ "$HIGHEST_TEMP" -le "$FAN_OFF_TEMP" ]; then
+if [ "$HIGHEST_TEMP" -le "$FAN_LOW_TEMP" ]; then
   # set fan to off
-  FAN_PWM = FAN_OFF_PWM
+  FAN_PWM=$FAN_OFF_PWM
   OUTPUT+="Setting pwm to: "$FAN_OFF_PWM$'\n'
 elif [ "$HIGHEST_TEMP" -ge "$FAN_HIGH_TEMP" ]; then
   # set fan to full speed
-  FAN_PWM = FAN_HIGH_PWM
+  FAN_PWM=$FAN_HIGH_PWM
   OUTPUT+="Setting pwm to: "$FAN_HIGH_PWM$'\n'
 else
   # set fan to starting speed first to make sure it spins up then change it to low setting.
@@ -133,11 +133,11 @@ else
   #    sleep 4
   #fi
   # Calculate target fan PWM speed as a linear value between FAN_HIGH_PWM and FAN_LOW_PWM
-  FAN_LINEAR_PWM=$(( ((HIGHEST_TEMP - FAN_OFF_TEMP - 1) * PWM_INCREMENT) + FAN_LOW_PWM))
+  FAN_LINEAR_PWM=$(( ((HIGHEST_TEMP - FAN_LOW_TEMP - 1) * PWM_INCREMENT) + FAN_LOW_PWM))
   FAN_PWM=$FAN_LINEAR_PWM
 fi
 
-#echo "fan post pwm: "$FAN_PWM
+# echo "fan post pwm: "$FAN_PWM
 
 FAN_CPU_PWM=0
 FAN_GPU_PWM=0
@@ -161,12 +161,12 @@ fi
 
 if [ "$FAN_PWM" -lt "$FAN_CPU_PWM" ]; then
   FAN_PWM=$FAN_CPU_PWM
-  echo "fan cpu takeover: "$FAN_CPU_PWM
+  echo "CPU takeover: "$FAN_CPU_PWM
 fi
 
 if [ "$FAN_PWM" -lt "$FAN_GPU_PWM" ]; then
   FAN_PWM=$FAN_GPU_PWM
-  echo "fan gpu takeover: "$FAN_GPU_PWM
+  echo "GPU takeover: "$FAN_GPU_PWM
 fi
 
 echo $FAN_PWM  > $ARRAY_FAN
@@ -179,4 +179,4 @@ if [ "$PREVIOUS_SPEED" -ne "$CURRENT_SPEED" ]; then
 else
   echo "Fan speed unchanged."
 fi
-echo "Highest drive temp: "$HIGHEST_TEMP". CPU: "$CPU_TEMP". GPU: "$GPU_TEMP". Current pwm: "$CURRENT_SPEED
+echo "Highest drive: "$HIGHEST_TEMP"°C("$FAN_LOW_TEMP"/"$FAN_HIGH_TEMP"). CPU: "$CPU_TEMP"°C("$CPU_LOW_TEMP"/"$CPU_HIGH_TEMP"). GPU: "$GPU_TEMP"°C("$GPU_LOW_TEMP"/"$GPU_HIGH_TEMP"). Current pwm: "$CURRENT_SPEED
