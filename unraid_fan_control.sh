@@ -146,17 +146,23 @@ if [ "$CPU_TEMP" -gt "$CPU_HIGH_TEMP" ]; then
   FAN_CPU_PWM=$FAN_HIGH_PWM
   OUTPUT+="CPU setting pwm to: "$FAN_HIGH_PWM$'\n'
 elif [ "$CPU_TEMP" -gt "$CPU_LOW_TEMP" ]; then
-  FAN_CPU_PWM=$FAN_LOW_PWM
-  OUTPUT+="CPU setting pwm to: "$FAN_LOW_PWM$'\n'
+  STEPS=$((CPU_HIGH_TEMP - CPU_LOW_TEMP - 1))
+  INC=$(( (FAN_HIGH_PWM - FAN_LOW_PWM) / STEPS))
+  FAN_LINEAR_PWM=$(( ((CPU_TEMP - CPU_LOW_TEMP - 1) * INC) + FAN_LOW_PWM))
+  FAN_CPU_PWM=$FAN_LINEAR_PWM
+  OUTPUT+="CPU setting pwm to: "$FAN_LINEAR_PWM$'\n'
 fi
 
 if [ "$GPU_TEMP" -gt "$GPU_HIGH_TEMP" ]; then
   FAN_GPU_PWM=$FAN_HIGH_PWM
   OUTPUT+="GPU setting pwm to: "$FAN_HIGH_PWM$'\n'
 elif [ "$GPU_TEMP" -gt "$GPU_LOW_TEMP" ]; then
-  FAN_GPU_PWM=$FAN_LOW_PWM
-  OUTPUT+="GPU setting pwm to: "$FAN_LOW_PWM$'\n'
-    echo "fan gpu low"
+  STEPS=$((GPU_HIGH_TEMP - GPU_LOW_TEMP - 1))
+  INC=$(( (FAN_HIGH_PWM - FAN_LOW_PWM) / STEPS))
+  FAN_LINEAR_PWM=$(( ((GPU_TEMP - GPU_LOW_TEMP - 1) * INC) + FAN_LOW_PWM))
+  FAN_GPU_PWM=$FAN_LINEAR_PWM
+  OUTPUT+="GPU setting pwm to: "$FAN_LINEAR_PWM$'\n'
+  echo "fan gpu low"
 fi
 
 if [ "$FAN_PWM" -lt "$FAN_CPU_PWM" ]; then
